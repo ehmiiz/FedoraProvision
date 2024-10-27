@@ -13,4 +13,4 @@ Ansible playbook to automate my Fedora Workstation setup
 - windows server lab (qemu//kvm, vagrant, terraform)
 - ehmiizblog
 - screenshot workflow (gnome+script+kpaint)
-- 
+- powershell? psreadline alternative 
