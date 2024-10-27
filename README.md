@@ -12,3 +12,5 @@ Ansible playbook to automate my Fedora Workstation setup
 - citrix
 - windows server lab (qemu//kvm, vagrant, terraform)
 - ehmiizblog
+- screenshot workflow (gnome+script+kpaint)
+- 
