@@ -1,0 +1,143 @@
+---
+- hosts: localhost
+  connection: local
+  tasks:
+    - name: Save username
+      shell: whoami
+      register: username
+
+
+- name: Configure Fedora Workstation
+  hosts: localhost
+  become: true
+
+  tasks:
+    # Add custom repositories
+    - name: Add VSCode repository
+      yum_repository:
+        name: vscode
+        description: VSCode YUM Repo
+        baseurl: https://packages.microsoft.com/yumrepos/vscode
+        gpgcheck: yes
+        gpgkey: https://packages.microsoft.com/keys/microsoft.asc
+
+    # Update all packages
+    - name: Ensure all packages are up to date
+      dnf:
+        name: "*"
+        state: latest
+
+    # Install essential packages
+    - name: Install common packages
+      dnf:
+        name:
+          - git
+          - gnome-tweaks
+          - curl
+          - htop
+          - neovim
+          - toolbox
+          - lsd
+          - bat
+          - remmina
+          - code
+        state: present
+
+    - name: Remove common packages
+      dnf:
+        name:
+          - gnome-tour
+        state: absent
+
+    # Set GNOME settings (example to disable desktop icons)
+    - name: Disable desktop icons in GNOME
+      command: gsettings set org.gnome.desktop.background show-desktop-icons false
+
+    # Install Flatpak applications using shell commands to ensure user scope
+
+    - name: Add Flathub repository to user installation
+      ansible.builtin.shell: |
+        flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/share/flatpak/repo/flathub"
+      become: no
+
+    - name: Install Flatpak applications in user scope
+      ansible.builtin.shell: |
+        flatpak --user install -y flathub {{ item }}
+      loop:
+        - com.bitwarden.desktop
+        - com.spotify.Client
+        - md.obsidian.Obsidian
+        - org.gnome.Extensions
+        - org.gnome.Evolution
+        - org.signal.Signal
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/share/flatpak/app/{{ item }}"
+      become: no
+
+
+    
+    # Bashrc configs
+    - name: Add "logoff" alias to .bashrc
+      lineinfile:
+        path: /home/{{ username.stdout }}/.bashrc
+        line: "alias logoff='gnome-session-quit --logout --no-prompt'"
+        state: present
+
+    - name: Add "ll" alias to .bashrc
+      lineinfile:
+        path: /home/{{ username.stdout }}/.bashrc
+        line: "alias ll='lsd -la'"
+        state: present
+
+    # Create folders
+    - name: Create some directories
+      file:
+        path: "/home/{{ username.stdout }}/{{ item }}"
+        state: directory
+      with_items:
+      - code
+      - Pictures/Screenshots
+
+    # Fix font
+    # ~/.config/environment.d/envvars.conf):
+    - name: Enhance fonts
+      lineinfile:
+        path: /home/{{ username.stdout }}/.config/environment.d/envvars.conf
+        line: FREETYPE_PROPERTIES="cff:no-stem-darkening=0 autofitter:no-stem-darkening=0"
+        state: present
+
+    # Clone the San Francisco Pro Fonts repository
+    - name: Clone the SF Pro Fonts repository
+      ansible.builtin.git:
+        repo: "https://github.com/sahibjotsaggu/San-Francisco-Pro-Fonts.git"
+        dest: "/tmp/SF-Pro-Fonts"
+        version: master
+        force: yes
+
+    # Create the font directory
+    - name: Create font directory
+      file:
+        path: "/home/{{ username.stdout }}/.local/share/fonts/SF-Pro"
+        state: directory
+
+    # Move the specific font files to the .local font directory
+    - name: Copy SF-Pro-Italic.ttf and SF-Pro.ttf to font directory
+      ansible.builtin.copy:
+        src: "/tmp/SF-Pro-Fonts/SF-Pro-Italic.ttf"
+        dest: "/home/{{ username.stdout }}/.local/share/fonts/SF-Pro/"
+        remote_src: yes
+
+    - name: Copy SF-Pro.ttf to font directory
+      ansible.builtin.copy:
+        src: "/tmp/SF-Pro-Fonts/SF-Pro.ttf"
+        dest: "/home/{{ username.stdout }}/.local/share/fonts/SF-Pro/"
+        remote_src: yes
+
+    # Refresh font cache
+    - name: Refresh font cache
+      ansible.builtin.shell:
+        cmd: "fc-cache -fv"
+    # Set the fonts to SF Pro regular and 17
+    # Interface, Document, Monospace
