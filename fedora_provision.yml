@@ -90,6 +90,12 @@
         path: /home/{{ username.stdout }}/.bashrc
         line: "alias ll='lsd -la'"
         state: present
+    
+    - name: Add z script
+      lineinfile:
+        path: /home/{{ username.stdout }}/.bashrc
+        line: ". ~/code/z/z.sh"
+        state: present
 
     # Create folders
     - name: Create some directories
@@ -99,6 +105,14 @@
       with_items:
       - code
       - Pictures/Screenshots
+
+    # Clone repos
+    - name: Clone z repo
+      ansible.builtin.git:
+        repo: "https://github.com/rupa/z.git"
+        dest: "/home/{{  username.stdout }}/code/z"
+        version: master
+        force: yes
 
     # Fix font
     # ~/.config/environment.d/envvars.conf):
