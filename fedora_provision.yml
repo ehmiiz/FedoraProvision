@@ -1,4 +1,5 @@
 ---
+# User who triggered the playbook
 - hosts: localhost
   connection: local
   tasks:
@@ -7,6 +8,8 @@
       register: username
 
 
+# Runs as sudo, user operations must be scoped using {{ username.stdout }}
+# Or become: no
 - name: Configure Fedora Workstation
   hosts: localhost
   become: true
@@ -56,7 +59,6 @@
       command: gsettings set org.gnome.desktop.background show-desktop-icons false
 
     # Install Flatpak applications using shell commands to ensure user scope
-
     - name: Add Flathub repository to user installation
       ansible.builtin.shell: |
         flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -78,8 +80,6 @@
         creates: "{{ ansible_env.HOME }}/.local/share/flatpak/app/{{ item }}"
       become: no
 
-
-    
     # Bashrc configs
     - name: Add "logoff" alias to .bashrc
       lineinfile:
@@ -107,6 +107,8 @@
       with_items:
       - code
       - Pictures/Screenshots
+      - .local/share/fonts/SF-Pro
+      - .local/share/fonts/SF-nerdfonts
 
     # Clone repos
     - name: Clone z repo
@@ -117,7 +119,6 @@
         force: yes
 
     # Fix font
-    # ~/.config/environment.d/envvars.conf):
     - name: Enhance fonts
       lineinfile:
         path: /home/{{ username.stdout }}/.config/environment.d/envvars.conf
@@ -132,12 +133,6 @@
         version: master
         force: yes
 
-    # Create the font directory
-    - name: Create font directory
-      file:
-        path: "/home/{{ username.stdout }}/.local/share/fonts/SF-Pro"
-        state: directory
-
     # Move the specific font files to the .local font directory
     - name: Copy SF-Pro-Italic.ttf and SF-Pro.ttf to font directory
       ansible.builtin.copy:
@@ -151,9 +146,64 @@
         dest: "/home/{{ username.stdout }}/.local/share/fonts/SF-Pro/"
         remote_src: yes
 
+    # Clone the nerdfont repository
+    - name: Clone the SF Pro Fonts repository
+      ansible.builtin.git:
+        repo: "https://github.com/shaunsingh/SFMono-Nerd-Font-Ligaturized.git"
+        dest: "/tmp/SF-nerdfonts"
+        version: main
+        force: yes
+
+    # Move the nerd font folder to the .local font directory
+    - name: Copy SF-Pro-Italic.ttf and SF-Pro.ttf to font directory
+      ansible.builtin.copy:
+        src: "/tmp/SF-nerdfonts"
+        dest: "/home/{{ username.stdout }}/.local/share/fonts/SF-nerdfonts/"
+        remote_src: yes
+
     # Refresh font cache
     - name: Refresh font cache
       ansible.builtin.shell:
         cmd: "fc-cache -fv"
-    # Set the fonts to SF Pro regular and 17
-    # Interface, Document, Monospace
+  
+    # Set GNOME interface settings with gsettings
+    - name: Set font hinting to none
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.interface font-hinting 'none'
+      become: no
+
+    - name: Set interface font to SF Pro with specific weight and optical size
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.interface font-name 'SF Pro weight=274 14 @opsz=17,wght=270'
+      become: no
+
+    - name: Set monospace font to Liga SFMono Nerd Font
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.interface monospace-font-name 'Liga SFMono Nerd Font 14'
+      become: no
+
+    - name: Set text scaling factor to 1.0
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.interface text-scaling-factor 1.0
+      become: no
+
+    - name: Set terminal theme variant to dark
+      ansible.builtin.command: >
+        gsettings set org.gnome.Terminal.Legacy.Settings theme-variant 'dark'
+      become: no
+
+    - name: Disable GNOME animations
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.interface enable-animations false
+      become: no
+
+    - name: Enable tap-to-click on touchpad
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true
+      become: no
+
+    - name: Enable two-finger secondary click on touchpad
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.peripherals.touchpad click-method 'fingers'
+      become: no
+
