@@ -6,11 +6,11 @@ Ansible playbook to automate my Fedora Workstation setup
 
 - Gnome extensions
 - Background ✅
-- ssh keys 
+- ssh keys
 - work repo
 - personal repo
 - citrix
 - windows server lab (qemu//kvm, vagrant, terraform)
-- ehmiizblog
+- ehmiizblog ✅
 - screenshot workflow (gnome+script+kpaint) ✅
 - psreadline alternative ✅
