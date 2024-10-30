@@ -50,7 +50,6 @@
           - hstr # history similar to PSReadLine ListView
           - gnome-screenshot
           - python3-psutil
-          - 
         state: present
 
     - name: Remove common packages
