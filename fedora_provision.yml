@@ -40,12 +40,17 @@
           - htop
           - neovim
           - toolbox
-          - lsd
-          - bat
-          - remmina
+          - lsd # nice ls view
+          - bat # nice cat view
+          - remmina # rdp application
           - code
           - chromium
-          - hugo
+          - hugo # static site generator
+          - eog # eye of gnome, makes eog filename.png open up img
+          - hstr # history similar to PSReadLine ListView
+          - gnome-screenshot
+          - python3-psutil
+          - 
         state: present
 
     - name: Remove common packages
@@ -76,6 +81,7 @@
         - org.gnome.Extensions
         - org.gnome.Evolution
         - org.signal.Signal
+        - org.kde.kolourpaint
       args:
         creates: "{{ ansible_env.HOME }}/.local/share/flatpak/app/{{ item }}"
       become: no
@@ -99,6 +105,21 @@
         line: ". ~/code/z/z.sh"
         state: present
 
+    # Get and set the history inline view (hstr), don't use
+    # reverse search til they fix the security issue (2024-10-30)
+    # This is why I only use the first 7 lines of the config
+    - name: Configure hstr in bashrc with specific lines
+      command: hstr --show-bash-configuration
+      register: hstr_config
+
+    - name: Ensure specific hstr config is present in .bashrc
+      blockinfile:
+        path: ~/.bashrc
+        marker: "# {mark} HSTR configuration"
+        content: "{{ hstr_config.stdout.splitlines()[:7] | join('\n') }}"
+      when: hstr_config.stdout.splitlines()[:7] | join('\n') not in lookup('file', '~/.bashrc', errors='ignore')
+      become: no
+
     # Create folders
     - name: Create some directories
       file:
@@ -117,6 +138,39 @@
         dest: "/home/{{  username.stdout }}/code/z"
         version: master
         force: yes
+    
+    - name: Clone BashCraft
+      ansible.builtin.git:
+        repo: "https://github.com/ehmiiz/bashcraft.git"
+        dest: "/home/{{  username.stdout }}/code/bashcraft"
+        version: main
+        force: yes
+
+    # Clones my blog, inits the themes submodule
+    - name: Clone ehmiizblog if not present
+      ansible.builtin.git:
+        repo: "https://github.com/ehmiiz/ehmiizblog.git"
+        dest: "/home/{{ username.stdout }}/code/ehmiizblog"
+        update: no
+      register: clone_status
+      become: yes
+      become_user: "{{ username.stdout }}"
+
+    - name: Initialize git submodules
+      ansible.builtin.command: git submodule init
+      args:
+        chdir: "/home/{{ username.stdout }}/code/ehmiizblog"
+      when: clone_status.changed
+      become: yes
+      become_user: "{{ username.stdout }}"
+
+    - name: Update git submodules
+      ansible.builtin.command: git submodule update
+      args:
+        chdir: "/home/{{ username.stdout }}/code/ehmiizblog"
+      when: clone_status.changed
+      become: yes
+      become_user: "{{ username.stdout }}"
 
     # Fix font
     - name: Enhance fonts
@@ -182,9 +236,9 @@
         gsettings set org.gnome.desktop.interface monospace-font-name 'Liga SFMono Nerd Font 14'
       become: no
 
-    - name: Set text scaling factor to 1.0
+    - name: Set text scaling factor to 0.75
       ansible.builtin.command: >
-        gsettings set org.gnome.desktop.interface text-scaling-factor 1.0
+        gsettings set org.gnome.desktop.interface text-scaling-factor 0.75
       become: no
 
     - name: Set terminal theme variant to dark
@@ -207,3 +261,38 @@
         gsettings set org.gnome.desktop.peripherals.touchpad click-method 'fingers'
       become: no
 
+      # Download and set wallpaper to black
+    - name: Download a black wallpaper
+      ansible.builtin.get_url:
+        url: https://i.imgur.com/JIYqdUW.png
+        dest: /home/{{ username.stdout }}/Pictures/black.png
+        mode: '0440'
+
+    - name: Set the wallpaper for dark mode
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.background picture-uri-dark file:///home/{{ username.stdout }}/Pictures/black.png
+      become: no
+
+    - name: Set the wallpaper for light mode
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.background picture-uri file:///home/{{ username.stdout }}/Pictures/black.png
+      become: no
+
+    - name: Use 'wallpaper' as picture option
+      ansible.builtin.command: >
+        gsettings set org.gnome.desktop.background picture-options 'wallpaper'
+      become: no
+
+    # Custom Keybinds
+    - name: Screenshot shortcut name
+      community.general.dconf:
+        key: "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/name"
+        value: "'screenshot'"
+    - name: Screenshot shortcut command
+      community.general.dconf:
+        key: "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/command"
+        value: "'bash /home/{{ username.stdout }}/code/bashcraft/screenshot.sh'"
+    - name: Screenshot shortcut binding
+      community.general.dconf:
+        key: "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/binding"
+        value: "'<Shift><Control>b'"
