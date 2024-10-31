@@ -124,6 +124,8 @@
       file:
         path: "/home/{{ username.stdout }}/{{ item }}"
         state: directory
+        owner: "{{ username.stdout }}"
+        group: "{{ username.stdout }}"
       with_items:
       - code
       - Pictures/Screenshots
@@ -151,6 +153,7 @@
         repo: "https://github.com/ehmiiz/ehmiizblog.git"
         dest: "/home/{{ username.stdout }}/code/ehmiizblog"
         update: no
+        force: yes
       register: clone_status
       become: yes
       become_user: "{{ username.stdout }}"
@@ -172,11 +175,22 @@
       become_user: "{{ username.stdout }}"
 
     # Fix font
+    - name: Ensure environment.d directory exists
+      ansible.builtin.file:
+        path: "/home/{{ username.stdout }}/.config/environment.d"
+        state: directory
+        owner: "{{ username.stdout }}"
+        group: "{{ username.stdout }}"
+        mode: '0755'
+      become: yes
+
     - name: Enhance fonts
-      lineinfile:
-        path: /home/{{ username.stdout }}/.config/environment.d/envvars.conf
-        line: FREETYPE_PROPERTIES="cff:no-stem-darkening=0 autofitter:no-stem-darkening=0"
+      ansible.builtin.lineinfile:
+        path: "/home/{{ username.stdout }}/.config/environment.d/envvars.conf"
+        line: 'FREETYPE_PROPERTIES="cff:no-stem-darkening=0 autofitter:no-stem-darkening=0"'
+        create: yes
         state: present
+      become: yes
 
     # Clone the San Francisco Pro Fonts repository
     - name: Clone the SF Pro Fonts repository
